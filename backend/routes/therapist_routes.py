@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from config.db import get_therapist_schema , mongo
+from bson.objectid import ObjectId
 
 therapist_bp = Blueprint('therapist', __name__)
 
@@ -76,17 +77,43 @@ def login():
 
         return jsonify({
             "message": "Login successful",
-            "therapist": therapist
+            "therapist": therapist,
+             "token" : str(therapist["_id"])
         }), 200
 
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
-
 @therapist_bp.route('/dashboard', methods=['GET'])
 def therapist_dashboard():
-    return jsonify({"message": "Therapist dashboard data"})
+    print(request.headers.get('token'))
+    try:
+        id = request.headers.get('token')
 
+        if not id:
+            return jsonify({"error": "not logged in"}), 400
+        
+        therapist = mongo.db.therapist.find_one({"_id": ObjectId(id)})
+        print("here!!!")
+        
+        if not therapist:
+            print("here!!!!!")
+            return jsonify({"error": "User not found"}), 404
+
+        therapist["_id"] = str(therapist["_id"])
+        therapist.pop("password")
+        therapist.pop("_id")
+        print("here!!!!")
+
+        return jsonify({
+                "message": "therapist Details",
+                "therapist": therapist
+            }), 200
+
+    except Exception as e:
+        print("not here!!!!")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+    
 @therapist_bp.route('/patients', methods=['GET'])
 def therapist_patients():
     return jsonify({"patients": [{"id": 1, "name": "Patient A"}, {"id": 2, "name": "Patient B"}]})

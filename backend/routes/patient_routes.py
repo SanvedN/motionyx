@@ -1,6 +1,7 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify , make_response
 from datetime import datetime
 from config.db import get_patient_schema , mongo
+from bson.objectid import ObjectId
 
 patient_bp = Blueprint('patient', __name__)
 
@@ -45,7 +46,6 @@ def signup():
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
     
-
 @patient_bp.route('/login', methods=['POST'])
 def login():
     try:
@@ -68,14 +68,14 @@ def login():
             return jsonify({"error": "Invalid credentials"}), 401
 
         # Convert the ObjectId to a string for the response
-        patient["_id"] = str(patient["_id"])
-
-        # Mask sensitive data in the response
+        patient_id = str(patient["_id"])
         patient.pop("password")
-
+        patient["_id"] = patient_id
+        
         return jsonify({
             "message": "Login successful",
-            "patient": patient
+            "patient": patient,
+            "token" : patient_id
         }), 200
 
     except Exception as e:
@@ -83,7 +83,34 @@ def login():
 
 @patient_bp.route('/dashboard', methods=['GET'])
 def patient_dashboard():
-    return jsonify({"message": "Patient dashboard data"})
+    print(request.headers.get('token'))
+    try:
+        id = request.headers.get('token')
+
+        if not id:
+            return jsonify({"error": "not logged in"}), 400
+        
+        patient = mongo.db.patient.find_one({"_id": ObjectId(id)})
+        print("here!!!")
+
+        if not patient:
+            print("here!!!!!")
+            return jsonify({"error": "User not found"}), 404
+        
+        patient["_id"] = str(patient["_id"])
+        patient.pop("password")
+        patient.pop("_id")
+        print("here!!!!")
+
+        return jsonify({
+                "message": "Patient Details",
+                "patient": patient
+            }), 200
+
+    except Exception as e:
+        print("not here!!!!")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
 
 @patient_bp.route('/daily_plan', methods=['GET'])
 def daily_exercise_plan():
